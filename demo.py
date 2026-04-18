@@ -21,7 +21,7 @@ if not os.path.exists(CHROMA_DIR):
         print("✅ Ingest complete.")
     else:
         print("❌ PDF not found — cannot build ChromaDB")
-        
+
 # Pre-load the chain so first query isn't slow
 print("🚀 Loading RAG chain...")
 build_chain()
@@ -35,7 +35,7 @@ EXAMPLES = [
     "Can capital punishment be imposed in the Netherlands?",
     "How can the constitution be revised?",
     "What are the rules about freedom of speech?",
-    "How many members does the Lower House have?",ç
+    "How many members does the Lower House have?"
 ]
 
 
