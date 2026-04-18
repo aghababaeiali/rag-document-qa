@@ -23,7 +23,7 @@ env/
 data/chroma_db/
 
 # Source PDFs — too large for git, user downloads their own
-# data/sample_docs/*.pdf
+data/sample_docs/*.pdf
 
 # Jupyter
 .ipynb_checkpoints/

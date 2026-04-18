@@ -8,25 +8,32 @@ import gradio as gr
 from app.chain import ask, build_chain
 
 import os
+import urllib.request
 from app.ingest import run_ingest
 
-# Auto-ingest if ChromaDB doesn't exist
-CHROMA_DIR = "data/chroma_db"
 PDF_PATH = "data/sample_docs/grondwet-koninkrijk-ENG-V4.pdf"
+PDF_URL = "https://open.overheid.nl/documenten/ronl-faa96875fef77af167a9133bd3625c0e9b45fa89/pdf"
+CHROMA_DIR = "data/chroma_db"
 
-if not os.path.exists(CHROMA_DIR):
-    if os.path.exists(PDF_PATH):
-        print("⚙️ ChromaDB not found — running ingest...")
-        run_ingest()
-        print("✅ Ingest complete.")
-    else:
-        print("❌ PDF not found — cannot build ChromaDB")
+# Create directories if they don't exist
+os.makedirs("data/sample_docs", exist_ok=True)
+os.makedirs("data/chroma_db", exist_ok=True)
 
-# Pre-load the chain so first query isn't slow
-print("🚀 Loading RAG chain...")
-build_chain()
-print("✅ Chain ready.")
+# Download PDF if not present
+if not os.path.exists(PDF_PATH):
+    print("📥 Downloading Dutch Constitution PDF...")
+    urllib.request.urlretrieve(PDF_URL, PDF_PATH)
+    print(f"✅ PDF downloaded to {PDF_PATH}")
+else:
+    print(f"✅ PDF already exists at {PDF_PATH}")
 
+# Build ChromaDB if not present
+if not os.path.exists(CHROMA_DIR) or not os.listdir(CHROMA_DIR):
+    print("⚙️ Building ChromaDB from PDF...")
+    run_ingest()
+    print("✅ Ingest complete.")
+else:
+    print("✅ ChromaDB already exists.")
 
 # ── Example questions shown in the UI ─────────────────────────
 EXAMPLES = [
