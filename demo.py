@@ -7,6 +7,21 @@ logging.getLogger("transformers").setLevel(logging.ERROR)
 import gradio as gr
 from app.chain import ask, build_chain
 
+import os
+from app.ingest import run_ingest
+
+# Auto-ingest if ChromaDB doesn't exist
+CHROMA_DIR = "data/chroma_db"
+PDF_PATH = "data/sample_docs/grondwet-koninkrijk-ENG-V4.pdf"
+
+if not os.path.exists(CHROMA_DIR):
+    if os.path.exists(PDF_PATH):
+        print("⚙️ ChromaDB not found — running ingest...")
+        run_ingest()
+        print("✅ Ingest complete.")
+    else:
+        print("❌ PDF not found — cannot build ChromaDB")
+        
 # Pre-load the chain so first query isn't slow
 print("🚀 Loading RAG chain...")
 build_chain()
@@ -20,7 +35,7 @@ EXAMPLES = [
     "Can capital punishment be imposed in the Netherlands?",
     "How can the constitution be revised?",
     "What are the rules about freedom of speech?",
-    "How many members does the Lower House have?",
+    "How many members does the Lower House have?",ç
 ]
 
 
