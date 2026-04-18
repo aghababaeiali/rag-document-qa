@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.env
+.venv/
+
+# Environment variables — NEVER commit real keys
+.env
+.env.local
+.env.production
+
+# ChromaDB — rebuilt by running ingest.py
+data/chroma_db/
+
+# Source PDFs — too large for git, user downloads their own
+data/sample_docs/*.pdf
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# PyTest cache
+.pytest_cache/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Model cache — downloaded automatically on first run
+.cache/
+sentence_transformers/
+
+# Docker
+*.dockerignore
