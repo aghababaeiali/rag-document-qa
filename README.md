@@ -106,6 +106,10 @@ pip install -r requirements.txt
 
 cp .env.example .env
 # Add your GROQ_API_KEY to .env
+
+# Download the Dutch Constitution PDF:
+# https://www.government.nl/documents/reports/2023/04/01/the-constitution-of-the-kingdom-of-the-netherlands-2023
+# Save it to: data/sample_docs/grondwet-koninkrijk-ENG-V4.pdf
 ```
 
 ### Ingest the document
