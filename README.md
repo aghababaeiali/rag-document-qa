@@ -2,8 +2,7 @@
 
 A production-style Retrieval-Augmented Generation (RAG) system that answers questions about the **Dutch Constitution (2023)** with Article citations, grounded entirely in the source document. Includes an automated evaluation layer using RAGAS.
 
-**[▶ Live Demo](https://huggingface.co/spaces/aliabbi/dutch-constitution-qa)** · **[API Docs](https://your-render-url/docs)**
-
+**[▶ Live Demo](https://huggingface.co/spaces/aliabbi/dutch-constitution-qa)** · **[GitHub](https://github.com/aghababaeiali/rag-document-qa)**
 ---
 
 ## Why This Project
@@ -101,15 +100,10 @@ cd rag-document-qa
 
 python3.11 -m venv venv
 source venv/bin/activate
-
 pip install -r requirements.txt
 
 cp .env.example .env
 # Add your GROQ_API_KEY to .env
-
-# Download the Dutch Constitution PDF:
-# https://www.government.nl/documents/reports/2023/04/01/the-constitution-of-the-kingdom-of-the-netherlands-2023
-# Save it to: data/sample_docs/grondwet-koninkrijk-ENG-V4.pdf
 ```
 
 ### Ingest the document
@@ -118,7 +112,12 @@ cp .env.example .env
 python -m app.ingest
 ```
 
-This loads the PDF, splits it into ~100 chunks, embeds them with `all-MiniLM-L6-v2`, and stores them in ChromaDB. Runs once.
+This loads the PDF, splits it into 145 chunks, embeds them with `all-MiniLM-L6-v2`,
+and stores them in ChromaDB. Runs once locally.
+
+> **Note:** On HuggingFace Spaces, the PDF is downloaded automatically from
+> [open.overheid.nl](https://open.overheid.nl) and ChromaDB is built on first
+> startup — no manual setup needed.
 
 ### Run the Gradio demo
 
