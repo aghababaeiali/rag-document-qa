@@ -1,4 +1,6 @@
-# 🇳🇱 Dutch Constitution Q&A — RAG Pipeline with Evaluation
+![CI/CD Status](https://github.com/aghababaeiali/rag-document-qa/actions/workflows/ci-cd.yml/badge.svg)
+
+# 🇳🇱 Dutch Constitution Q&A , RAG Pipeline with Evaluation
 
 A production-style Retrieval-Augmented Generation (RAG) system that answers questions about the **Dutch Constitution (2023)** with Article citations, grounded entirely in the source document. Includes an automated evaluation layer using RAGAS.
 
@@ -42,6 +44,17 @@ RAGAS → Faithfulness + Answer Relevancy scores
 - `main.py` — FastAPI REST API (`POST /ask`)
 - `demo.py` — Gradio web UI (HuggingFace Spaces)
 
+---
+## CI/CD Pipeline
+
+Every push to main triggers an automated pipeline:
+
+1. **Test job** — pytest suite (13 tests) runs on Ubuntu with Python 3.11
+2. **Deploy job** — if tests pass, the repo is force-pushed to HuggingFace Space, triggering automatic redeploy
+
+Pull requests run tests only — deployment is gated on direct pushes to main.
+
+Pipeline config: `.github/workflows/ci-cd.yml`
 ---
 
 ## Stack
