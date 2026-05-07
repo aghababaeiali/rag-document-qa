@@ -1,0 +1,89 @@
+# .github/workflows/ci-cd.yml
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:    
+
+jobs:
+
+  test:
+    name: Run pytest suite
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Get the code from the repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install Python 3.11 with pip caching
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # 3. Install all project dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      # 4. Build ChromaDB before running tests
+      #    Tests need a populated vector store to work
+      - name: Build ChromaDB index
+        run: |
+          mkdir -p data/sample_docs data/chroma_db
+          python -m app.ingest_for_ci
+
+      # 5. Run the test suite with the Groq API key from secrets
+      - name: Run pytest
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          python -m pytest tests/ -v
+  deploy:
+    name: Deploy to HuggingFace Space
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch HuggingFace README to preserve it
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Download HF's current README (with front matter) before pushing
+          curl -L \
+            -H "Authorization: Bearer $HF_TOKEN" \
+            -o README.md \
+            https://huggingface.co/spaces/aliabbi/dutch-constitution-qa/raw/main/README.md
+
+          echo "✅ HuggingFace README preserved for deploy:"
+          head -15 README.md
+
+      - name: Push to HuggingFace Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions Bot"
+          
+          # Stage the swapped README
+          git add README.md
+          git commit -m "Use HuggingFace README for deploy" || echo "No README change"
+          
+          git remote add huggingface \
+            https://aliabbi:$HF_TOKEN@huggingface.co/spaces/aliabbi/dutch-constitution-qa
+          
+          git push --force huggingface main   

@@ -26,7 +26,8 @@ data/chroma_db/
 data/sample_docs/*.pdf
 
 # Jupyter
-.ipynb_checkpoints/
+.ipynb_checkpoints/git add .gitignore demo.py
+
 *.ipynb
 
 # macOS
