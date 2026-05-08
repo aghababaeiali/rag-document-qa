@@ -55,3 +55,6 @@ sentence_transformers/
 # Docker
 *.dockerignore.gradio/
 .gradio/
+mlruns/
+mlflow.db
+evaluation_outputs/

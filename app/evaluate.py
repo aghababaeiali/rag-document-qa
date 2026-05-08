@@ -1,5 +1,9 @@
 # app/evaluate.py
 
+import json
+import mlflow
+from pathlib import Path
+
 import os
 import logging
 logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
@@ -17,10 +21,20 @@ from app.retriever import load_vectorstore
 
 load_dotenv()
 
+# ── MLflow Setup ───────────────────────────────────────────────
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+EXPERIMENT_NAME = "rag-evaluation"
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
+
 # ── Configuration ──────────────────────────────────────────────
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TOP_K = 3
+LLM_MODEL = "llama-3.1-8b-instant"        # ← NEW
+CHUNK_SIZE = 500                           # ← NEW
+CHUNK_OVERLAP = 50                         # ← NEW
 
 # ── Test Set ───────────────────────────────────────────────────
 # These are question + ground truth pairs from the actual Constitution
@@ -94,50 +108,97 @@ def build_eval_dataset():
 
 
 def run_evaluation():
-    """Run RAGAS evaluation and print results."""
+    """Run RAGAS evaluation and log everything to MLflow."""
 
-    dataset = build_eval_dataset()
+    with mlflow.start_run() as run:
+        print(f"\n🔬 MLflow run started: {run.info.run_id}")
 
-    print("\n📊 Running RAGAS evaluation...")
+        # ── Log parameters (the config you chose) ──────────────────
+        mlflow.log_param("chunk_size", CHUNK_SIZE)
+        mlflow.log_param("chunk_overlap", CHUNK_OVERLAP)
+        mlflow.log_param("top_k", TOP_K)
+        mlflow.log_param("embedding_model", EMBED_MODEL)
+        mlflow.log_param("llm_model", LLM_MODEL)
+        mlflow.log_param("test_set_size", len(TEST_SET))
 
-    # RAGAS needs an LLM and embeddings to compute metrics
-    # We wrap our existing Groq LLM and HuggingFace embeddings
-    groq_llm = ChatGroq(
-        api_key=GROQ_API_KEY,
-        model="llama-3.1-8b-instant",
-        temperature=0
-    )
-    hf_embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+        # ── Run the evaluation (existing logic) ────────────────────
+        dataset = build_eval_dataset()
 
-    results = evaluate(
-        dataset=dataset,
-        metrics=[Faithfulness(), ResponseRelevancy(strictness=1)],
-        llm=groq_llm,
-        embeddings=hf_embeddings,
-        run_config=RunConfig(max_workers=1)
-    )
+        print("\n📊 Running RAGAS evaluation...")
 
-    print("\n✅ Evaluation complete!")
-    print("=" * 50)
+        groq_llm = ChatGroq(
+            api_key=GROQ_API_KEY,
+            model=LLM_MODEL,
+            temperature=0
+        )
+        hf_embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
 
-    # Convert to pandas for easy access
-    df = results.to_pandas()
+        results = evaluate(
+            dataset=dataset,
+            metrics=[Faithfulness(), ResponseRelevancy(strictness=1)],
+            llm=groq_llm,
+            embeddings=hf_embeddings,
+            run_config=RunConfig(max_workers=1)
+        )
 
-    # Compute averages manually from the dataframe
-    faith_avg = df['faithfulness'].mean()
-    relevancy_avg = df['answer_relevancy'].mean()  # ← not response_relevancy
+        # ── Process results ────────────────────────────────────────
+        df = results.to_pandas()
+        faith_avg = df['faithfulness'].mean()
+        relevancy_avg = df['answer_relevancy'].mean()
 
-    print(f"  Faithfulness:     {faith_avg:.3f}  (1.0 = perfect, no hallucination)")
-    print(f"  Answer Relevancy: {relevancy_avg:.3f}  (1.0 = always on-topic)")
-    print("=" * 50)
+        # ── Log metrics ────────────────────────────────────────────
+        mlflow.log_metric("faithfulness_avg", faith_avg)
+        mlflow.log_metric("answer_relevancy_avg", relevancy_avg)
 
-    # Fix per-question breakdown
-    print("\n📋 Per-question breakdown:")
-    for i, row in df.iterrows():
-        print(f"\n  Q{i+1}: {row['user_input'][:60]}...")        # ← not 'question'
-        print(f"       Faithfulness:     {row['faithfulness']:.3f}")
-        print(f"       Answer Relevancy: {row['answer_relevancy']:.3f}")  # ← not response_relevancy
-        print(f"       Answer: {row['response'][:100]}...")       # ← not 'answer'
+        # Per-question metrics for fine-grained comparison
+        for i, row in df.iterrows():
+            mlflow.log_metric(f"faithfulness_q{i+1}", row['faithfulness'])
+            mlflow.log_metric(f"relevancy_q{i+1}", row['answer_relevancy'])
+
+        # ── Log artifact (results JSON) ────────────────────────────
+        artifact_path = Path("evaluation_outputs/results.json")
+        artifact_path.parent.mkdir(exist_ok=True)
+
+        with open(artifact_path, "w") as f:
+            json.dump({
+                "summary": {
+                    "faithfulness_avg": float(faith_avg),
+                    "answer_relevancy_avg": float(relevancy_avg),
+                    "chunk_size": CHUNK_SIZE,
+                    "top_k": TOP_K,
+                    "embedding_model": EMBED_MODEL,
+                    "llm_model": LLM_MODEL,
+                },
+                "per_question": [
+                    {
+                        "question": row['user_input'],
+                        "answer": row['response'],
+                        "faithfulness": float(row['faithfulness']),
+                        "answer_relevancy": float(row['answer_relevancy']),
+                    }
+                    for _, row in df.iterrows()
+                ]
+            }, f, indent=2)
+
+        mlflow.log_artifact(str(artifact_path))
+
+        # ── Print results (your existing output) ───────────────────
+        print("\n✅ Evaluation complete!")
+        print("=" * 50)
+        print(f"  Faithfulness:     {faith_avg:.3f}  (1.0 = perfect, no hallucination)")
+        print(f"  Answer Relevancy: {relevancy_avg:.3f}  (1.0 = always on-topic)")
+        print("=" * 50)
+
+        print("\n📋 Per-question breakdown:")
+        for i, row in df.iterrows():
+            print(f"\n  Q{i+1}: {row['user_input'][:60]}...")
+            print(f"       Faithfulness:     {row['faithfulness']:.3f}")
+            print(f"       Answer Relevancy: {row['answer_relevancy']:.3f}")
+            print(f"       Answer: {row['response'][:100]}...")
+
+        print(f"\n📊 Logged to MLflow:")
+        print(f"   Experiment: {EXPERIMENT_NAME}")
+        print(f"   Run ID: {run.info.run_id}")
 
 
 if __name__ == "__main__":
